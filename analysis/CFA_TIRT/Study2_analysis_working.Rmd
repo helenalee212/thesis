@@ -1,0 +1,414 @@
+---
+title: "Study2_analysis_working"
+output: html_document
+date: "2024-09-18"
+---
+
+```{r setup, include=FALSE}
+#install.packages(c("lavaan", "mirt", "MplusAutomation", "psych", "polycor", "thurstonianIRT"))
+library(lavaan)
+library(mirt)
+library(MplusAutomation)
+library(psych)
+library(polycor)
+library(readr)
+library(dplyr)
+library(janitor)
+library(semPlot)
+library(thurstonianIRT)
+
+
+
+```
+
+
+```{r load data, echo=FALSE}
+
+data <- read_csv("Study2_200.csv")
+
+```
+# CFA Model 2: SS Maladaptive Personality (G-60-SS)
+
+```{r ss2 data, echo=FALSE}
+
+SS2_items <- data[, 1:60]
+SS2_items <- sapply(SS2_items, as.numeric)
+
+SS2_items <- SS2_items %>% 
+  remove_empty(which=c("rows","cols"))
+
+
+#summary(SS2_items)
+
+```
+
+```{r ss2 data, echo=FALSE}
+
+SS1_items <- data %>% 
+  select(I1:B35)
+
+SS1_items <- sapply(SS1_items, as.numeric)
+
+SS1_items <- SS1_items %>% 
+  remove_empty(which=c("rows","cols"))
+
+
+#summary(SS1_items)
+
+```
+
+
+This CFA model is specified and fitted to data based on G-60-SS in Geunole et al's (2016) paper 
+
+```{r model, echo=FALSE}
+
+model_SS2 <- '
+  CO =~ G1+G4+G7+G17+G25+G35+G37+G44+G49+G56
+  DE =~ G2+G11+G19+G23+G26+G31+G38+G46+G57+G59
+  NE =~ G3+G5+G21+G24+G30+G32+G41+G45+G51+G53
+  PS =~ G6+G9+G15+G18+G27+G33+G42+G48+G54+G60 
+  AN =~ G10+G13+G16+G22+G28+G34+G40+G43+G52+G55
+  DI =~ G8+G12+G14+G20+G29+G36+G39+G47+G50+G58
+'
+
+cat(model_SS2)
+
+```
+Geonole's paper: 
+
+The model was fitted to the polychoric correlations of ordered categorical item responses.
+employing the diagonally weighted least squares (DWLS) estimator with robust errors for all
+estimations.
+For the DWLS and ULS estimators, lavaan provides ‘robust’ variants: WLSM, WLSMVS, WLSMV, ULSM, ULSMVS, ULSMV.
+
+```{r fit model, echo=FALSE}
+
+fit_ss2 <- cfa(model_SS2, data= SS2_items,
+               estimator = "WLSMVS") 
+
+lavInspect(fit_ss2, "cov.lv")
+
+#summary(fit_ss2, fit.measures = TRUE, standardized = TRUE)
+
+```
+
+```{r plot model, echo=FALSE}
+
+ss2_graph <- semPaths(object = fit_ss2, nCharNodes = 0)
+
+ss2_plot <- semPaths(object = fit_ss2,
+         whatLabels = "std",          # Show standardised estimates on the figure
+         nCharNodes = 0,
+         style = "lisrel",
+         covAtResiduals = FALSE,
+         exoVar = FALSE,
+         layoutSplit = FALSE,
+         layout = "tree",
+         rotation = 2,
+         edge.color = "black",
+         color = "pink",
+        sizeLat = 7,
+         sizeLat2 = 4,
+         sizeMan = 3,
+         sizeMan2 = 2,
+         border.width = 0.5,
+         edge.label.cex = 0.35,
+         edge.width = 0.3
+         )  
+```
+
+```{r fit measure}
+
+# Extract fit measures
+fitmeasures(fit_ss2, c("chisq", "df", "pvalue", "cfi", "srmr", "rmsea"))
+
+# Extract SS2 CFA model factor correlations
+ss2_cor <- lavInspect(fit_ss2, "cor.lv")
+
+print(ss2_cor)
+
+```
+
+# CFA Model 1: SS influence tactics based on K&M and Buss resuls 
+
+24 manipulation tactics from (Buss et al., 1987), factor structure based on Buss's factor loading results (orginially for intimate relationship context) items were neutralized in ways suggested in Ketterman & Maner, 2021/ similar to how Jonason & Webster_2012 did it 
+
+27 additional tactics items developed from Ketterman & Maner, 2021, factor structure was adapted from their EFA factor loading results. 
+
+From Ketterman & Maner, 2021: 27
+AU= Authority (12)
+RB =Relationship Building (9)
+EX = Explanation
+
+24 manipulation tactics from (Buss et al., 1987):
+
+CH = Charm (5)
+ST = Silent Treatment (4)
+CO = Coercion (5)
+RS = Reason (5)
+RG = Regression (2)
+DB = Debasement (3)
+
+
+```{r model, echo=FALSE}
+
+model_SS1 <- '
+  AU =~ I1 + I2 + I3 + I5 + I6 + I7 + I8 + I9 + I10 + I22 + I31 + I33
+  RB =~ I13 + I14 + I24 + I25 + I26 + I27 + I28 + I29 + I30
+  EX =~ I15 + I16 + I17 + I18 + I19+ I21
+  CH =~ B4 + B9 + B19 + B24 + B29
+  ST =~ B22 + B12 + B17 + B32
+  CO =~ B3 + B23 + B13 + B33 +B28
+  RS =~ B11 + B31 + B34 + B6
+  RG =~ B2 + B7 
+  DB =~ B35 + B30 + B15
+'
+
+cat(model_SS1)
+
+```
+
+```{r fit model, echo=FALSE}
+
+fit_ss1 <- cfa(model_SS1, data= SS1_items,
+               estimator = "WLSMVS") 
+
+lavInspect(fit_ss1, "cov.lv")
+
+summary(fit_ss1, fit.measures = TRUE, standardized = TRUE)
+
+```
+
+
+
+```{r plot model, echo=FALSE}
+
+ss1_graph <- semPaths(object = fit_ss1, nCharNodes = 0)
+
+ss1_plot <- semPaths(object = fit_ss1,
+         whatLabels = "std",          # Show standardised estimates on the figure
+         nCharNodes = 0,
+         style = "lisrel",
+         covAtResiduals = FALSE,
+         exoVar = FALSE,
+         layoutSplit = FALSE,
+         layout = "tree",
+         rotation = 1,
+         edge.color = "black",
+         color = "pink",
+        sizeLat = 7,
+         sizeLat2 = 4,
+         sizeMan = 3,
+         sizeMan2 = 2,
+         border.width = 0.5,
+         edge.label.cex = 0.35,
+         edge.width = 0.3
+         )  
+```
+
+
+```{r fit measure}
+
+# Extract fit measures
+fitmeasures(fit_ss1, c("chisq", "df", "pvalue", "cfi", "srmr", "rmsea"))
+
+# Extract SS2 CFA model factor correlations
+ss1_cor <- lavInspect(fit_ss1, "cor.lv")
+
+print(ss1_cor)
+
+```
+
+# CFA Model 3: SS Maladaptive Personality X Coercion and Complaisant (G-60-SS)
+
+Based On K&M's EFA results:
+
+Coercive tactics (CO): CH, ST, CO, RG, DB, AU
+
+Complaisant tactics (CP): RS, EX, RB
+
+```{r model, echo=FALSE}
+
+model_SS3 <- '
+  CO =~ I1 + I2 + I3 + I5 + I6 + I7 + I8 + I9 + I10 + I22 + I31 + I33 + 
+  B4 + B9 + B19 + B24 + B29 + B22 + B12 + B17 + B32 + B3 + B23 + B13 + B33 +B28 + B2 + B7 + B35 + B30 + B15
+  
+  CP =~ I13 + I14 + I24 + I25 + I26 + I27 + I28 + I29 + I30 + I15 + I16 + I17 + I18 + I19+ I21 + 
+  B11 + B31 + B34 + B6
+'
+
+cat(model_SS3)
+
+```
+
+```{r fit model, echo=FALSE}
+
+fit_ss3 <- cfa(model_SS3, data= SS1_items,
+               estimator = "WLSMVS") 
+
+lavInspect(fit_ss3, "cov.lv")
+
+summary(fit_ss3, fit.measures = TRUE, standardized = TRUE)
+
+```
+
+
+
+```{r plot model, echo=FALSE}
+
+ss1_graph <- semPaths(object = fit_ss3, nCharNodes = 0)
+
+ss1_plot <- semPaths(object = fit_ss3,
+         whatLabels = "std",          # Show standardised estimates on the figure
+         nCharNodes = 0,
+         style = "lisrel",
+         covAtResiduals = FALSE,
+         exoVar = FALSE,
+         layoutSplit = FALSE,
+         layout = "tree",
+         rotation = 1,
+         edge.color = "black",
+         color = "pink",
+        sizeLat = 7,
+         sizeLat2 = 4,
+         sizeMan = 3,
+         sizeMan2 = 2,
+         border.width = 0.5,
+         edge.label.cex = 0.35,
+         edge.width = 0.3
+         )  
+```
+
+
+```{r fit measure}
+
+# Extract fit measures
+fitmeasures(fit_ss3, c("chisq", "df", "pvalue", "cfi", "srmr", "rmsea"))
+
+# Extract SS2 CFA model factor correlations
+ss3_cor <- lavInspect(fit_ss3, "cor.lv")
+
+print(ss3_cor)
+
+```
+
+#FC Model 2: G-60-FC
+
+```{r block structure}
+
+#Pull FC data for G-60-FC
+fc2_data <- data %>%
+  select(GF1:GF60)
+
+cor_matrix(c(0.2, 0.3, 0.5), dim = 3)
+
+fc2_blocks <- 
+  set_block(c("GF1", "GF2", "GF3"), traits = c("CO", "DE", "NE")) +
+  set_block(c("GF4", "GF5", "GF6"), traits = c("CO", "NE", "PS")) +
+  set_block(c("GF7", "GF8", "GF9"), traits = c("CO", "DI", "PS")) +
+  set_block(c("GF10", "GF11", "GF12"), traits = c("AN", "DE", "DI")) +
+  set_block(c("GF13", "GF14", "GF15"), traits = c("AN", "DI", "PS")) +
+  set_block(c("GF16", "GF17", "GF18"), traits = c("AN", "CO", "PS")) +
+  set_block(c("GF19", "GF20", "GF21"), traits = c("DE", "DI", "NE")) +
+  set_block(c("GF22", "GF23", "GF24"), traits = c("AN", "DE", "NE")) +
+  set_block(c("GF25", "GF26", "GF27"), traits = c("CO", "DE", "PS")) +
+  set_block(c("GF28", "GF29", "GF30"), traits = c("AN", "DI", "NE")) +
+  set_block(c("GF31", "GF32", "GF33"), traits = c("DE", "NE", "PS")) +
+  set_block(c("GF34", "GF35", "GF36"), traits = c("AN", "CO", "DI")) +
+  set_block(c("GF37", "GF38", "GF39"), traits = c("CO", "DE", "DI")) +
+  set_block(c("GF40", "GF41", "GF42"), traits = c("AN", "NE", "PS")) +
+  set_block(c("GF43", "GF44", "GF45"), traits = c("AN", "CO", "NE")) +
+  set_block(c("GF46", "GF47", "GF48"), traits = c("DE", "DI", "PS")) +
+  set_block(c("GF49", "GF50", "GF51"), traits = c("CO", "DI", "NE")) +
+  set_block(c("GF52", "GF53", "GF54"), traits = c("AN", "CO", "DE")) +
+  set_block(c("GF55", "GF56", "GF57"), traits = c("NE", "PS", "DI")) +
+  set_block(c("GF58", "GF59", "GF60"), traits = c("AN", "PS", "DE"))
+```
+
+```{r triplet}
+
+# generate the data to be understood by 'thurstonianIRT'
+
+fc2_triplets <- make_TIRT_data(
+  data = fc2_data, 
+  blocks = fc2_blocks, 
+  direction = "larger",
+  format = c("ranks", "pairwise"), 
+  family = "bernoulli", 
+  range = c(0, 1))
+
+```
+
+DWLS estimator with mean corrected Satorra–Bentler goodness-of-fit tests suggested in  Brown & Maydeu-Olivares, 2011
+
+```{r fit data}
+# fit the data using lavaan
+
+fc2_fit <- fit_TIRT_lavaan(fc2_triplets)
+```
+
+```{r summary fit}
+# View results
+print(fc2_fit)
+predict(fc2_fit)
+```
+
+#FC Model 1: FC influence tactics 
+
+```{r data}
+#Pull FC data for G-60-FC
+fc1_data <- data %>%
+  select(S1T1_1:S4T5_3)
+```
+  
+  
+```{r block structure}
+
+fc1_blocks <- 
+  set_block(c("S1T1_1", "S1T1_2", "S1T1_3"), traits = c("L_H", "M_H", "M_L")) +
+  set_block(c("S1T2_1", "S1T2_2", "S1T2_3"), traits = c("L_M", "M_H", "M_M")) +
+  set_block(c("S1T3_1", "S1T3_2", "S1T3_3"), traits = c("H_L", "M_L", "M_M")) +
+  set_block(c("S1T4_1", "S1T4_2", "S1T4_3"), traits = c("L_H", "L_M", "M_L")) +
+  set_block(c("S1T5_1", "S1T5_2", "S1T5_3"), traits = c("H_L", "L_H", "L_M")) +
+  set_block(c("S2T1_1", "S2T1_2", "S2T1_3"), traits = c("L_H", "M_H", "M_L")) +
+  set_block(c("S2T2_1", "S2T2_2", "S2T2_3"), traits = c("L_M", "M_H", "M_M")) +
+  set_block(c("S2T3_1", "S2T3_2", "S2T3_3"), traits = c("H_L", "M_L", "M_M")) +
+  set_block(c("S2T4_1", "S2T4_2", "S2T4_3"), traits = c("L_H", "L_M", "M_L")) +
+  set_block(c("S2T5_1", "S2T5_2", "S2T5_3"), traits = c("H_L", "L_H", "L_M")) +
+  set_block(c("S3T1_1", "S3T1_2", "S3T1_3"), traits = c("L_H", "M_H", "M_L")) +
+  set_block(c("S3T2_1", "S3T2_2", "S3T2_3"), traits = c("L_M", "M_H", "M_M")) +
+  set_block(c("S3T3_1", "S3T3_2", "S3T3_3"), traits = c("H_L", "M_L", "M_M")) +
+  set_block(c("S3T4_1", "S3T4_2", "S3T4_3"), traits = c("L_H", "L_M", "M_L")) +
+  set_block(c("S3T5_1", "S3T5_2", "S3T5_3"), traits = c("H_L", "L_H", "L_M")) +
+  set_block(c("S4T1_1", "S4T1_2", "S4T1_3"), traits = c("L_H", "M_H", "M_L")) +
+  set_block(c("S4T2_1", "S4T2_2", "S4T2_3"), traits = c("L_M", "M_H", "M_M")) +
+  set_block(c("S4T3_1", "S4T3_2", "S4T3_3"), traits = c("H_L", "M_L", "M_M")) +
+  set_block(c("S4T4_1", "S4T4_2", "S4T4_3"), traits = c("L_H", "L_M", "M_L")) +
+  set_block(c("S4T5_1", "S4T5_2", "S4T5_3"), traits = c("H_L", "L_H", "L_M"))
+
+```
+
+```{r triplet}
+
+# generate the data to be understood by 'thurstonianIRT'
+
+fc1_triplets <- make_TIRT_data(
+  data = fc1_data, 
+  blocks = fc1_blocks, 
+  direction = "larger",
+  format = c("ranks", "pairwise"), 
+  family = "bernoulli", 
+  range = c(0, 1))
+
+```
+
+```{r fit data}
+# fit the data using lavaan
+
+fc1_fit <- fit_TIRT_lavaan(fc1_triplets)
+```
+
+```{r summary fit}
+# View results
+summary(fc1_fit, fit.measures = TRUE, standardized = TRUE)
+```

@@ -1,0 +1,399 @@
+---
+title: "Pilot: Block Design"
+author: "Helena Lee"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cosmo
+    code_download: TRUE
+    css: ../custom.css
+  
+---
+
+```{r library, include=FALSE}
+###############################################################################################
+#Install required packages - use pacman package to manage installs + loading
+###############################################################################################
+
+r <- getOption("repos")
+r["CRAN"] = "https://cran.ms.unimelb.edu.au/"
+options(repos = r)
+
+#install.packages("pacman")
+
+pacman::p_load(apaTables, beepr, BSDA, car, data.table, devtools, ez, here, GGally, ggcorrplot, gt, Hmisc, huxtable, interactions, IPtoCountry, janitor, jtools, knitr, lavaan, lavaanPlot, lme4, lmerTest, magrittr, MASS, ordinal, plyr, probemod, psych, qualtRics, readxl, reghelper, rstatix, sjlabelled, skimr, stats, stringr, tibble, tidyr, qualtRics,  IPtoCountry, tidyverse,dplyr, writexl)
+
+pacman::p_load_current_gh(c("bcjaeger/r2glmm", "crsh/papaja"))
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	error = TRUE,
+	fig.align = "center",
+	fig.height = 4,
+	fig.width = 10,
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	dev = "png"
+)
+
+#read data files
+data <- read_csv("Data.csv")
+
+
+```
+
+```{r data, echo = False}
+
+
+#select  data 
+
+data <- data %>%
+  select(Block, Mean, SD, RC, CVI)
+
+summary(data)
+
+
+
+```
+
+
+```{r data, echo = True}
+
+
+# Load required library
+library(dplyr)
+
+# Function to combine rows for a given prefix (e.g., "P45", "P50", "P55")
+combine_rows <- function(data, prefix) {
+  # Filter rows for the given prefix
+  data_filtered <- data %>%
+    filter(Block %in% paste0(prefix, "-", 1:3))
+  
+  # Calculate combined mean and SD
+  mean_combined <- mean(data_filtered$Mean)
+  n <- nrow(data_filtered)
+  sd_combined <- sqrt(sum((n - 1) * data_filtered$SD^2) / (n * (n - 1)))
+  
+  # Create a new combined row
+  combined_row <- data %>%
+    filter(Block == paste0(prefix, "-1")) %>%
+    mutate(
+      Block = prefix,
+      Mean = mean_combined,
+      SD = sd_combined
+    ) %>%
+    select(Block, Mean, SD, RC, CVI)
+  
+  # Find the index of the first row in the original data
+  index <- which(data$Block == paste0(prefix, "-1"))[1]
+  
+  # Return the combined row and its index
+  list(row = combined_row, index = index)
+}
+
+# Assuming your full dataset is named 'data'
+
+# Combine rows for P45, P50, and P55
+combined_p45 <- combine_rows(data, "P45")
+combined_p50 <- combine_rows(data, "P50")
+combined_p55 <- combine_rows(data, "P55")
+
+# Create a list of combined rows in reverse order
+combined_list <- list(combined_p55, combined_p50, combined_p45)
+
+# Start with the original data
+data_updated <- data
+
+# Process each combined row in reverse order
+for (combined in combined_list) {
+  prefix <- combined$row$Block
+  
+  # Remove original rows for this prefix
+  data_updated <- data_updated %>%
+    filter(!Block %in% paste0(prefix, "-", 1:3))
+  
+  # Insert the combined row at the correct position
+  insert_index <- min(combined$index, nrow(data_updated) + 1)
+  data_updated <- bind_rows(
+    data_updated[1:(insert_index-1), ],
+    combined$row,
+    data_updated[insert_index:nrow(data_updated), ]
+  )
+}
+
+# Print portions of the updated dataset to verify
+for (prefix in c("P45", "P50", "P55")) {
+  index <- which(data_updated$Block == prefix)
+  cat("\nRows around", prefix, ":\n")
+  print(data_updated[(index-1):(index+1), ])
+}
+
+data_updated <-  na.omit(data_updated)
+print(data_updated)
+
+#save this updated dataset
+write.csv(data_updated, "Block_data.csv", row.names = FALSE)
+
+
+```
+```{r categories for RC and CVI , echo = True}
+# Function to assign values based on ranges
+assign_range_value <- function(x) {
+  case_when(
+    x >= 0 & x < 100 ~ 1,
+    x >= 100 & x < 200 ~ 2,
+    x >= 200 & x <= 300 ~ 3,
+    TRUE ~ NA_real_
+  )
+}
+
+# Assuming your updated dataset (with combined P45, P50, P55 rows) is named 'updated_data'
+
+# Mutate rows based on CVI and RC ranges
+final_data <- data_updated %>%
+  mutate(
+    
+    RC_level = assign_range_value(RC),
+    CVI_level = assign_range_value(CVI)
+  )
+
+print(final_data)
+
+```
+
+
+```{r Facet code , echo = True}
+
+
+final_data$Facet <- paste(final_data$RC_level, final_data$CVI_level,  sep="_")
+
+# Add facet codes to the main dataset
+
+facet_codes <- data.frame(Facet = unique(final_data$Facet))
+name_facet <- function(rc, cvi) {
+  cvi_names <- c("L", "M", "H")
+  rc_names <- c("L", "M", "H")
+  paste(rc_names[rc], cvi_names[cvi], sep="_")
+}
+
+facet_codes <- data.frame(Facet = unique(final_data$Facet))
+facet_codes$FacetCode <- sapply(strsplit(facet_codes$Facet, "_"), function(x) name_facet(as.numeric(x[1]), as.numeric(x[2])))
+
+
+# Add facet codes to the main dataset
+final_data <- final_data %>%
+  left_join(facet_codes, by = "Facet")
+
+final_data
+
+```
+
+number of unique facets = 6
+
+6 unique facets (A, B, C, D, E, F),
+
+we need a minimum of *5 triplets* to cover all 15 possible pairs of combinations. The triplets could be:
+
+•	(A, B, C)
+•	(A, D, E)
+•	(A, F, B)
+•	(C, D, F)
+•	(C, E, B)
+
+
+
+```{r facet data , echo = True}
+
+
+final_data <- final_data %>%
+  select(Block, Mean, FacetCode) %>%
+  filter(FacetCode != "H_M")
+
+write.csv(final_data, "Final_data_6.csv", row.names = FALSE)
+
+final_data
+
+```
+
+```{r block design , echo = True}
+# Load required libraries
+library(AlgDesign)
+
+# Create a data frame with all combinations of FacetCode
+final_data$FacetCode <- as.factor(final_data$FacetCode)
+
+
+# Create a data frame with all combinations of FacetCode and Sign
+facet_combinations <- expand.grid(
+  FacetCode = levels(factor(final_data$FacetCode)))
+
+# Create a balanced incomplete block design
+BIB <- optBlock(~ FacetCode, 
+                withinData = facet_combinations, 
+                blocksizes = rep(3, 5),  # Adjust the number of triplets as needed
+                nRepeats = 100)  # Increase for potentially better results
+
+
+
+# Convert the BIB design to a data frame
+bib_design <- as.data.frame(BIB$design)
+bib_design$Triplet <- rep(1:5, each = 3)
+bib_design$Position <- rep(1:3, 5)
+
+
+# Display the modified BIB design
+print(bib_design)
+
+write.csv(bib_design, "bib_design_6.csv.", row.names = FALSE)
+
+
+```
+
+
+
+```{r block positive , echo = True}
+
+library(dplyr)
+
+assign_data_to_bib_positive <- function(bib_design, final_data) {
+  assigned_bib <- bib_design
+  assigned_bib$AssignedMean <- NA
+  assigned_bib$AssignedBlock <- NA
+  
+  # Filter final_data based on the desired sign (positive or negative means)
+    filtered_data <- final_data %>% filter(Mean > 0) 
+ 
+  # Track assigned triplets
+  for (i in 1:nrow(bib_design)) {
+    facet <- bib_design$FacetCode[i]
+    matching_items <- filtered_data[filtered_data$FacetCode == facet, ]
+    
+    # Check if any matching items exist
+    if (nrow(matching_items) > 0) {
+      # Randomly select one matching item
+      selected_item <- matching_items[sample(nrow(matching_items), 1), ]
+      
+      # Assign the selected item's data
+      assigned_bib$AssignedMean[i] <- selected_item$Mean
+      assigned_bib$AssignedBlock[i] <- selected_item$Block
+      
+      # Remove the selected item from the filtered_data to avoid reuse
+      filtered_data <- filtered_data[filtered_data$Block != selected_item$Block, ]
+    } else {
+      # Print a warning if no matching item is found
+      cat("Warning: No matching item found for FacetCode:", facet, "at iteration", i, "\n")
+    }
+  }
+
+  return(list(assigned_bib = assigned_bib, filtered_data = filtered_data))
+}
+
+# --- Split BIB Design into Positive and Negative Parts ---
+# Assuming we want to split the design in half
+bib_design_positive <- bib_design
+
+# --- Assign data and create positive triplets ---
+result_positive <- assign_data_to_bib_positive(bib_design_positive, final_data)
+assigned_bib_positive <- result_positive$assigned_bib
+
+# --- Create the "Block" column ---
+assigned_bib_positive$Block <- paste0("T", assigned_bib_positive$Triplet, "P", assigned_bib_positive$Position)
+
+# --- Calculate Mean Differences for All Triplets ---
+mean_differences_positive <- assigned_bib_positive %>%
+  group_by(Triplet) %>%
+  mutate(
+    MeanDifference = max(AssignedMean, na.rm = TRUE) - min(AssignedMean, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- Export Results ---
+write.csv(mean_differences_positive, "mean_differences_positive.csv", row.names = FALSE)
+
+print(mean_differences_positive)
+
+# Display unused items (if any)
+used_blocks <- unique(assigned_bib_positive$AssignedBlock)
+unused_items <- final_data[!final_data$Block %in% used_blocks, ]
+cat("\nItems Not Used in the Assignment:\n")
+print(unused_items)
+
+```
+```{r block negative , echo = True}
+
+library(dplyr)
+
+ # Filter final_data based on the desired sign (positive or negative means)
+  filtered_data_negative <- final_data %>% filter(Mean < 0)
+ 
+
+assign_data_to_bib_negative <- function(bib_design, final_data) {
+  assigned_bib <- bib_design
+  assigned_bib$AssignedMean <- NA
+  assigned_bib$AssignedBlock <- NA
+  
+ 
+  # Track assigned triplets
+  for (i in 1:nrow(bib_design)) {
+    facet <- bib_design$FacetCode[i]
+    matching_items <- filtered_data_negative[filtered_data_negative$FacetCode == facet,]
+    
+    # Check if any matching items exist
+    if (nrow(matching_items) > 0) {
+      # Randomly select one matching item
+      selected_item <- matching_items[sample(nrow(matching_items), 1), ]
+      
+      # Assign the selected item's data
+      assigned_bib$AssignedMean[i] <- selected_item$Mean
+      assigned_bib$AssignedBlock[i] <- selected_item$Block
+      
+      # Remove the selected item from the filtered_data to avoid reuse
+      filtered_data_negative <- filtered_data_negative[filtered_data_negative$Block != selected_item$Block, ]
+    } else {
+      # Print a warning if no matching item is found
+      cat("Warning: No matching item found for FacetCode:", facet, "at iteration", i, "\n")
+    }
+  }
+
+  return(list(assigned_bib = assigned_bib, filtered_data_negative = filtered_data_negative))
+}
+
+# --- Split BIB Design into Positive and Negative Parts ---
+# Assuming we want to split the design in half
+bib_design_negative <- bib_design
+
+# --- Assign data and create positive triplets ---
+result_negative <- assign_data_to_bib_negative(bib_design_negative, final_data)
+assigned_bib_negative <- result_negative$assigned_bib
+
+# --- Create the "Block" column ---
+assigned_bib_negative$Block <- paste0("T", assigned_bib_negative$Triplet, "P", assigned_bib_negative$Position)
+
+# --- Calculate Mean Differences for All Triplets ---
+mean_differences_negative <- assigned_bib_negative %>%
+  group_by(Triplet) %>%
+  mutate(
+    MeanDifference = max(AssignedMean, na.rm = TRUE) - min(AssignedMean, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- Export Results ---
+write.csv(mean_differences_negative, "mean_differences_negative.csv", row.names = FALSE)
+
+print(mean_differences_negative)
+
+# Display unused items (if any)
+used_blocks <- unique(assigned_bib_negative$AssignedBlock)
+unused_items <- final_data[!final_data$Block %in% used_blocks, ]
+cat("\nItems Not Used in the Assignment:\n")
+print(unused_items)
+
+```
+`
