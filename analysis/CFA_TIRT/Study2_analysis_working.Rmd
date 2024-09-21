@@ -16,6 +16,7 @@ library(dplyr)
 library(janitor)
 library(semPlot)
 library(thurstonianIRT)
+library(tidyverse)
 
 
 
@@ -223,18 +224,50 @@ print(ss1_cor)
 
 Based On K&M's EFA results:
 
-Coercive tactics (CO): CH, ST, CO, RG, DB, AU
 
+model_SS1 <- '
+  AU =~ I1 + I2 + I3 + I5 + I6 + I7 + I8 + I9 + I10 + I22 + I31 + I33
+  RB =~ I13 + I14 + I24 + I25 + I26 + I27 + I28 + I29 + I30
+  EX =~ I15 + I16 + I17 + I18 + I19+ I21
+  CH =~ B4 + B9 + B19 + B24 + B29
+  ST =~ B22 + B12 + B17 + B32
+  CO =~ B3 + B23 + B13 + B33 +B28
+  RS =~ B11 + B31 + B34 + B6
+  RG =~ B2 + B7 
+  DB =~ B35 + B30 + B15
+  
+  
+Coercive tactics (CO): CH, ST, CO, RG, DB, AU
 Complaisant tactics (CP): RS, EX, RB
 
+
+```{r data, echo=FALSE}
+
+# Convert SS1_items to a data frame
+SS1_items <- as.data.frame(SS1_items)
+
+# Now you can use mutate()
+SS3_items <- SS1_items %>% 
+  mutate(AU = (I1+I2+I3+I5+I6+I7+I8+I9+I10+I22+I31+I33)/12) %>%
+  mutate (RB = (I13 + I14 + I24 + I25 + I26 + I27 + I28 + I29 + I30)/9) %>%
+  mutate(EX = (I15 + I16 + I17 + I18 + I19+ I21)/6)%>%
+  mutate(CH = (B4 + B9 + B19 + B24 + B29)/5) %>%
+  mutate (ST = (B22 + B12 + B17 + B32)/4) %>%
+  mutate (CO = (B3 + B23 + B13 + B33 +B28)/5) %>%
+  mutate (RS = (B11 + B31 + B34 + B6)/4) %>%
+  mutate (RG = (B2 + B7)/2) %>%
+  mutate (DB = (B35 + B30 + B15)/3)
+  
+
+```
+
 ```{r model, echo=FALSE}
+#Coercive tactics (Coer): CH, ST, CO, RG, DB, AU
+#Complaisant tactics (Comp): RS, EX, RB
 
 model_SS3 <- '
-  CO =~ I1 + I2 + I3 + I5 + I6 + I7 + I8 + I9 + I10 + I22 + I31 + I33 + 
-  B4 + B9 + B19 + B24 + B29 + B22 + B12 + B17 + B32 + B3 + B23 + B13 + B33 +B28 + B2 + B7 + B35 + B30 + B15
-  
-  CP =~ I13 + I14 + I24 + I25 + I26 + I27 + I28 + I29 + I30 + I15 + I16 + I17 + I18 + I19+ I21 + 
-  B11 + B31 + B34 + B6
+  Coer =~ CH + ST + CO + RG + DB+ AU
+  Comp =~ RS + EX + RB
 '
 
 cat(model_SS3)
@@ -243,8 +276,8 @@ cat(model_SS3)
 
 ```{r fit model, echo=FALSE}
 
-fit_ss3 <- cfa(model_SS3, data= SS1_items,
-               estimator = "WLSMVS") 
+fit_ss3 <- cfa(model_SS3, data= SS3_items,
+               estimator = "WLSMVS")  #not sure if this is now continuous variables, if yes, changed to MLE
 
 lavInspect(fit_ss3, "cov.lv")
 
@@ -300,29 +333,29 @@ print(ss3_cor)
 fc2_data <- data %>%
   select(GF1:GF60)
 
-cor_matrix(c(0.2, 0.3, 0.5), dim = 3)
 
 fc2_blocks <- 
-  set_block(c("GF1", "GF2", "GF3"), traits = c("CO", "DE", "NE")) +
-  set_block(c("GF4", "GF5", "GF6"), traits = c("CO", "NE", "PS")) +
-  set_block(c("GF7", "GF8", "GF9"), traits = c("CO", "DI", "PS")) +
-  set_block(c("GF10", "GF11", "GF12"), traits = c("AN", "DE", "DI")) +
-  set_block(c("GF13", "GF14", "GF15"), traits = c("AN", "DI", "PS")) +
-  set_block(c("GF16", "GF17", "GF18"), traits = c("AN", "CO", "PS")) +
-  set_block(c("GF19", "GF20", "GF21"), traits = c("DE", "DI", "NE")) +
-  set_block(c("GF22", "GF23", "GF24"), traits = c("AN", "DE", "NE")) +
-  set_block(c("GF25", "GF26", "GF27"), traits = c("CO", "DE", "PS")) +
-  set_block(c("GF28", "GF29", "GF30"), traits = c("AN", "DI", "NE")) +
-  set_block(c("GF31", "GF32", "GF33"), traits = c("DE", "NE", "PS")) +
-  set_block(c("GF34", "GF35", "GF36"), traits = c("AN", "CO", "DI")) +
-  set_block(c("GF37", "GF38", "GF39"), traits = c("CO", "DE", "DI")) +
-  set_block(c("GF40", "GF41", "GF42"), traits = c("AN", "NE", "PS")) +
-  set_block(c("GF43", "GF44", "GF45"), traits = c("AN", "CO", "NE")) +
-  set_block(c("GF46", "GF47", "GF48"), traits = c("DE", "DI", "PS")) +
-  set_block(c("GF49", "GF50", "GF51"), traits = c("CO", "DI", "NE")) +
-  set_block(c("GF52", "GF53", "GF54"), traits = c("AN", "CO", "DE")) +
-  set_block(c("GF55", "GF56", "GF57"), traits = c("NE", "PS", "DI")) +
-  set_block(c("GF58", "GF59", "GF60"), traits = c("AN", "PS", "DE"))
+  set_block(items=c("GF1", "GF2", "GF3"), traits = c("CO", "DE", "NE")) +
+  set_block(items=c("GF4", "GF5", "GF6"), traits = c("CO", "NE", "PS")) +
+  set_block(items=c("GF7", "GF8", "GF9"), traits = c("CO", "DI", "PS")) +
+  set_block(items=c("GF10", "GF11", "GF12"), traits = c("AN", "DE", "DI")) +
+  set_block(items=c("GF13", "GF14", "GF15"), traits = c("AN", "DI", "PS")) +
+  set_block(items=c("GF16", "GF17", "GF18"), traits = c("AN", "CO", "PS")) +
+  set_block(items=c("GF19", "GF20", "GF21"), traits = c("DE", "DI", "NE")) +
+  set_block(items=c("GF22", "GF23", "GF24"), traits = c("AN", "DE", "NE")) +
+  set_block(items=c("GF25", "GF26", "GF27"), traits = c("CO", "DE", "PS")) +
+  set_block(items=c("GF28", "GF29", "GF30"), traits = c("AN", "DI", "NE")) +
+  set_block(items=c("GF31", "GF32", "GF33"), traits = c("DE", "NE", "PS")) +
+  set_block(items=c("GF34", "GF35", "GF36"), traits = c("AN", "CO", "DI")) +
+  set_block(items=c("GF37", "GF38", "GF39"), traits = c("CO", "DE", "DI")) +
+  set_block(items=c("GF40", "GF41", "GF42"), traits = c("AN", "NE", "PS")) +
+  set_block(items=c("GF43", "GF44", "GF45"), traits = c("AN", "CO", "NE")) +
+  set_block(items=c("GF46", "GF47", "GF48"), traits = c("DE", "DI", "PS")) +
+  set_block(items=c("GF49", "GF50", "GF51"), traits = c("CO", "DI", "NE")) +
+  set_block(items=c("GF52", "GF53", "GF54"), traits = c("AN", "CO", "DE")) +
+  set_block(items=c("GF55", "GF56", "GF57"), traits = c("NE", "PS", "DI")) +
+  set_block(items=c("GF58", "GF59", "GF60"), traits = c("AN", "PS", "DE"))
+
 ```
 
 ```{r triplet}
@@ -339,19 +372,84 @@ fc2_triplets <- make_TIRT_data(
 
 ```
 
-DWLS estimator with mean corrected Satorra–Bentler goodness-of-fit tests suggested in  Brown & Maydeu-Olivares, 2011
+WLSM estimation
+using the DWLS estimator with mean corrected Satorra–Bentler goodness-of-fit tests. Note that this estimation procedure is denoted as WLSM estimation in Mplus.
+(Brown & Maydeu-Olivares, 2011)
+== weighted least square mean and variance adjusted (WLSMV) estimators in R
+
+ULSMV used in Watrin et al 2019 
+
+DWLS; lavaan also provides ‘robust’ variants for DWLS : WLSM, WLSMVS, WLSMV, ULSM, ULSMVS, ULSMV 
+no clear indication of which one of these was used in Geonole, 2016
+
+
+In orginial model (Geonole, 2016), initial ideniticaiton also failed. 
+They contrained correlation between AN (Antagonism), DI (Disinhibition), and NE (Negative Affect).
+
+       CO     DE     NE     PS     AN     DI
+CO  1.000                                   
+DE -0.683  1.000                            
+NE -0.844  0.751  1.000                     
+PS -0.621  0.683  0.667  1.000              
+AN -0.193  0.465  0.236  0.663  1.000       
+DI -0.891  0.617  0.635  0.748  0.649  1.000
+
+```{r fixed cor}
+
+# fix cor of AN DI NE to the estimated values in SS model, AN-DI = 0.649; AN-NE = 0.236; DI-NE = 0.635
+
+  AN ~~ 0.649*DI
+  AN ~~ 0.236*NE
+  DI ~~ 0.635*NE
+
+```
 
 ```{r fit data}
+
 # fit the data using lavaan
 
-fc2_fit <- fit_TIRT_lavaan(fc2_triplets)
+fc2_fit <- fit_TIRT_lavaan(fc2_triplets, estimator = "WLSMVS")
+
 ```
 
 ```{r summary fit}
 # View results
 print(fc2_fit)
-predict(fc2_fit)
+predict(fc2_fit, newdata = fc2_triplets)
+
+# store results 
+fc2_traits_TIRT <- predict(fc2_fit, newdata = fc2_triplets)
+
 ```
+
+```{r  fit}
+# View results
+summary(fc2_fit, fit.measures = TRUE)
+fc2_summary
+
+```
+
+```{r fc1 results}
+
+#create results list
+
+FC2_results <- list()
+
+fc2_traits_TIRT_s <- fc2_traits_TIRT %>% pivot_wider(id_cols = id, names_from = trait,
+                                                 values_from = c(estimate))
+
+FC2_results$final_estimates <- fc2_traits_TIRT_s #Final trait score and standard error estimates 
+
+FC2_results$fit_object <- fc2_fit #TIRT model fit object
+
+FC2_results$responses_TIRT <- fc2_triplets #The long format TIRT response 
+
+FC2_results$long_estimates <- fc2_traits_TIRT #Final trait score and standard error estimates, in long format 
+
+FC2_results
+
+```
+
 
 #FC Model 1: FC influence tactics 
 
@@ -402,13 +500,62 @@ fc1_triplets <- make_TIRT_data(
 
 ```
 
+
+ULSMV used in Watrin et al 2019 
+
+WLSMVS in Brown 2011
+
+DWLS; lavaan also provides ‘robust’ variants for DWLS : WLSM, WLSMVS, WLSMV, ULSM, ULSMVS, ULSMV 
+no clear indication of which one of these was used in Geonole, 2016
 ```{r fit data}
 # fit the data using lavaan
 
-fc1_fit <- fit_TIRT_lavaan(fc1_triplets)
+fc1_fit <- fit_TIRT_lavaan(fc1_triplets, estimator = "WLSMVS")
 ```
 
 ```{r summary fit}
 # View results
-summary(fc1_fit, fit.measures = TRUE, standardized = TRUE)
+print(fc1_fit)
+
+# store results 
+fc1_traits_TIRT <- predict(fc1_fit, newdata = fc1_triplets)
+
 ```
+
+```{r  fit}
+# View results
+summary(fc1_fit, fit.measures = TRUE)
+fc1_summary
+
+```
+
+```{r fc1 results}
+
+#create results list
+
+FC1_results <- list()
+
+fc1_traits_TIRT_s <- fc1_traits_TIRT %>% pivot_wider(id_cols = id, names_from = trait,
+                                                 values_from = c(estimate))
+
+FC1_results$final_estimates <- fc1_traits_TIRT_s #Final trait score and standard error estimates 
+
+FC1_results$fit_object <- fc1_fit #TIRT model fit object
+
+FC1_results$responses_TIRT <- fc1_triplets #The long format TIRT response 
+
+FC1_results$long_estimates <- fc1_traits_TIRT #Final trait score and standard error estimates, in long format 
+
+FC1_results
+```
+```{r fc1 correlation}
+
+#Extract correlation matrix from final estimates 
+fc1_correlation_matrix <- cor(FC1_results$final_estimates)
+print(fc1_correlation_matrix)
+
+```
+
+
+#Validation: MTMM 
+
