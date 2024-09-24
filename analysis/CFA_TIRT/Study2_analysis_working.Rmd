@@ -5,6 +5,7 @@ date: "2024-09-18"
 ---
 
 ```{r setup, include=FALSE}
+
 #install.packages(c("lavaan", "mirt", "MplusAutomation", "psych", "polycor", "thurstonianIRT"))
 library(lavaan)
 library(mirt)
@@ -17,8 +18,6 @@ library(janitor)
 library(semPlot)
 library(thurstonianIRT)
 library(tidyverse)
-
-
 
 ```
 
@@ -198,11 +197,11 @@ ss1_plot <- semPaths(object = fit_ss1,
          edge.color = "black",
          color = "pink",
         sizeLat = 7,
-         sizeLat2 = 4,
-         sizeMan = 3,
+         sizeLat2 = 3,
+         sizeMan = 1.2,
          sizeMan2 = 2,
          border.width = 0.5,
-         edge.label.cex = 0.35,
+         edge.label.cex = 0.4,
          edge.width = 0.3
          )  
 ```
@@ -304,11 +303,11 @@ ss1_plot <- semPaths(object = fit_ss3,
          color = "pink",
         sizeLat = 7,
          sizeLat2 = 4,
-         sizeMan = 3,
+         sizeMan = 5,
          sizeMan2 = 2,
          border.width = 0.5,
-         edge.label.cex = 0.35,
-         edge.width = 0.3
+         edge.label.cex = 0.5,
+         edge.width = 1
          )  
 ```
 
@@ -325,14 +324,45 @@ print(ss3_cor)
 
 ```
 
+```{r block structure}
+
+lambdas <- c(runif(6, 0.5, 1), runif(6, -1, -0.5))
+
+sim_data <- sim_TIRT_data(
+npersons = 100,
+ntraits = 3,
+nblocks_per_trait = 4,
+gamma = 0,
+lambda = lambdas,
+Phi = diag(3)
+)
+cat(make_lavaan_code(sim_data)) 
+
+#Generate lavaan code for Thurstonian IRT models
+
+```
+
 #FC Model 2: G-60-FC
 
+trait 1= CO = Compulsiveness; 
+trait 2= DE = Detachment; 
+trait 3= NE = Negative Affect; 
+trait 4= PS = Psychoticism; 
+trait 5= DI = Disinhibition; 
+trait 6= AN = Antagonism.
+
+  fixed correalations
+  
+  AN ~~ 0.649*DI (6/5)
+  AN ~~ 0.236*NE (6/3)
+  DI ~~ 0.635*NE (5/3)
 ```{r block structure}
 
 #Pull FC data for G-60-FC
 fc2_data <- data %>%
   select(GF1:GF60)
 
+write.csv(fc2_data, file = "fc2_data.csv")
 
 fc2_blocks <- 
   set_block(items=c("GF1", "GF2", "GF3"), traits = c("CO", "DE", "NE")) +
@@ -352,9 +382,9 @@ fc2_blocks <-
   set_block(items=c("GF43", "GF44", "GF45"), traits = c("AN", "CO", "NE")) +
   set_block(items=c("GF46", "GF47", "GF48"), traits = c("DE", "DI", "PS")) +
   set_block(items=c("GF49", "GF50", "GF51"), traits = c("CO", "DI", "NE")) +
-  set_block(items=c("GF52", "GF53", "GF54"), traits = c("AN", "CO", "DE")) +
-  set_block(items=c("GF55", "GF56", "GF57"), traits = c("NE", "PS", "DI")) +
-  set_block(items=c("GF58", "GF59", "GF60"), traits = c("AN", "PS", "DE"))
+  set_block(items=c("GF52", "GF53", "GF54"), traits = c("AN", "NE", "PS")) +
+  set_block(items=c("GF55", "GF56", "GF57"), traits = c("AN", "CO", "DE")) +
+  set_block(items=c("GF58", "GF59", "GF60"), traits = c("DI", "DE", "PS"))
 
 ```
 
@@ -370,21 +400,25 @@ fc2_triplets <- make_TIRT_data(
   family = "bernoulli", 
   range = c(0, 1))
 
+#cat(make_lavaan_code(fc2_triplets)) 
+
+
 ```
 
-WLSM estimation
+Choice of estimator 
+
 using the DWLS estimator with mean corrected Satorra–Bentler goodness-of-fit tests. Note that this estimation procedure is denoted as WLSM estimation in Mplus.
 (Brown & Maydeu-Olivares, 2011)
-== weighted least square mean and variance adjusted (WLSMV) estimators in R
+The mean and variance adjustment for the ULS estimation is denoted as “estimator” ULSMV in Mplus, and it is denoted WLSMV for the DWLS estimation. (Brown & Maydeu-Olivares, 2012)
 
-ULSMV used in Watrin et al 2019 
+ULSMV/ Mplus used in Watrin et al 2019 
 
 DWLS; lavaan also provides ‘robust’ variants for DWLS : WLSM, WLSMVS, WLSMV, ULSM, ULSMVS, ULSMV 
 no clear indication of which one of these was used in Geonole, 2016
 
 
-In orginial model (Geonole, 2016), initial ideniticaiton also failed. 
-They contrained correlation between AN (Antagonism), DI (Disinhibition), and NE (Negative Affect).
+In originial model (Geonole, 2016), initial identification also failed. 
+They constrained correlation between AN (Antagonism), DI (Disinhibition), and NE (Negative Affect).
 
        CO     DE     NE     PS     AN     DI
 CO  1.000                                   
@@ -394,31 +428,23 @@ PS -0.621  0.683  0.667  1.000
 AN -0.193  0.465  0.236  0.663  1.000       
 DI -0.891  0.617  0.635  0.748  0.649  1.000
 
-```{r fixed cor}
-
-# fix cor of AN DI NE to the estimated values in SS model, AN-DI = 0.649; AN-NE = 0.236; DI-NE = 0.635
-
-  AN ~~ 0.649*DI
-  AN ~~ 0.236*NE
-  DI ~~ 0.635*NE
-
-```
 
 ```{r fit data}
 
 # fit the data using lavaan
 
-fc2_fit <- fit_TIRT_lavaan(fc2_triplets, estimator = "WLSMVS")
+fc2_fit <- fit_TIRT_lavaan(fc2_triplets, estimator = "WLSMV")
 
 ```
 
 ```{r summary fit}
 # View results
 print(fc2_fit)
-predict(fc2_fit, newdata = fc2_triplets)
+predict(fc2_fit)
+
 
 # store results 
-fc2_traits_TIRT <- predict(fc2_fit, newdata = fc2_triplets)
+fc2_traits_TIRT <- predict(fc2_fit)
 
 ```
 
@@ -426,6 +452,8 @@ fc2_traits_TIRT <- predict(fc2_fit, newdata = fc2_triplets)
 # View results
 summary(fc2_fit, fit.measures = TRUE)
 fc2_summary
+
+ gof(fc2_fit) # Extract corrected goodness of fit statistics for gof.TIRTfit 
 
 ```
 
@@ -450,6 +478,23 @@ FC2_results
 
 ```
 
+```{r fc2 correlation}
+
+#Extract correlation matrix from final estimates 
+fc2_correlation_matrix <- cor(FC2_results$final_estimates)
+print(fc2_correlation_matrix)
+
+```
+
+              id      trait1     trait2      trait3       trait4       trait5      trait6
+id      1.00000000 -0.09920042  0.0174109 -0.03964689  0.058018276 -0.100306553 -0.05994578
+trait1 -0.09920042  1.00000000 -0.2500330  0.50442840  0.504520897  0.552058955  0.55830720
+trait2  0.01741090 -0.25003299  1.0000000 -0.43831446 -0.195025642 -0.280347802 -0.38663224
+trait3 -0.03964689  0.50442840 -0.4383145  1.00000000  0.398582212  0.755552729  0.72452263
+trait4  0.05801828  0.50452090 -0.1950256  0.39858221  1.000000000  0.008533176  0.15671114
+trait5 -0.10030655  0.55205895 -0.2803478  0.75555273  0.008533176  1.000000000  0.73364411
+trait6 -0.05994578  0.55830720 -0.3866322  0.72452263  0.156711139  0.733644113  1.00000000
+
 
 #FC Model 1: FC influence tactics 
 
@@ -460,6 +505,13 @@ fc1_data <- data %>%
 ```
   
   
+trait 1= LH 
+trait 2 = MH 
+trait 3 = ML
+trait 4 = LM
+trait 5 = MM
+trait 6 = HL
+
 ```{r block structure}
 
 fc1_blocks <- 
@@ -498,6 +550,9 @@ fc1_triplets <- make_TIRT_data(
   family = "bernoulli", 
   range = c(0, 1))
 
+cat(make_lavaan_code(fc1_triplets)) 
+
+
 ```
 
 
@@ -510,7 +565,7 @@ no clear indication of which one of these was used in Geonole, 2016
 ```{r fit data}
 # fit the data using lavaan
 
-fc1_fit <- fit_TIRT_lavaan(fc1_triplets, estimator = "WLSMVS")
+fc1_fit <- fit_TIRT_lavaan(fc1_triplets, estimator = "WLSMV") #or WLSMVS
 ```
 
 ```{r summary fit}
@@ -518,14 +573,14 @@ fc1_fit <- fit_TIRT_lavaan(fc1_triplets, estimator = "WLSMVS")
 print(fc1_fit)
 
 # store results 
-fc1_traits_TIRT <- predict(fc1_fit, newdata = fc1_triplets)
+fc1_traits_TIRT <- predict(fc1_fit)
 
 ```
 
 ```{r  fit}
 # View results
-summary(fc1_fit, fit.measures = TRUE)
-fc1_summary
+gof(fc1_fit) 
+
 
 ```
 
@@ -547,7 +602,28 @@ FC1_results$responses_TIRT <- fc1_triplets #The long format TIRT response
 FC1_results$long_estimates <- fc1_traits_TIRT #Final trait score and standard error estimates, in long format 
 
 FC1_results
+
+
 ```
+
+trait 1= LH 
+trait 2 = MH 
+trait 3 = ML
+trait 4 = LM
+trait 5 = MM
+trait 6 = HL
+
+
+               id     trait1     trait2     trait3     trait4     trait5     trait6
+id      1.0000000 -0.1690044 -0.1731204 -0.1657489  0.1719163 -0.1610449  0.1781874
+trait1 -0.1690044  1.0000000  0.9475108  0.9381057 -0.9568743  0.9712433 -0.9227964
+trait2 -0.1731204  0.9475108  1.0000000  0.8730034 -0.9128604  0.9586456 -0.9010808
+trait3 -0.1657489  0.9381057  0.8730034  1.0000000 -0.9625228  0.8773428 -0.9825311
+trait4  0.1719163 -0.9568743 -0.9128604 -0.9625228  1.0000000 -0.9509606  0.9719931
+trait5 -0.1610449  0.9712433  0.9586456  0.8773428 -0.9509606  1.0000000 -0.8830561
+trait6  0.1781874 -0.9227964 -0.9010808 -0.9825311  0.9719931 -0.8830561  1.0000000
+
+
 ```{r fc1 correlation}
 
 #Extract correlation matrix from final estimates 
@@ -556,6 +632,124 @@ print(fc1_correlation_matrix)
 
 ```
 
+```{r fc1 plot}
+
+#plot
+fc1_graph <- plot(FC1_results$final_estimates)
+
+
+```
+
 
 #Validation: MTMM 
 
+##Correlation matrix of SS3xFC1 (2x6)
+
+```{r factor scores SS3/FC1}
+
+# 1. Extract Factor Scores (as before)
+factor_scores_ss3 <- lavPredict(fit_ss3) # CFA (2 traits) estiamte factor scores 
+factor_scores_fc1 <- fc1_traits_TIRT_s %>%
+  select (-id)# TIRT (6 traits) estimate factor scores 
+
+# 2. Combine Scores into a Data Frame
+combined_scores1 <- data.frame(
+  Coercive = factor_scores_ss3[, 1],
+  Complaisant = factor_scores_ss3[, 2],
+  L_H = factor_scores_fc1[, 1],
+  M_H = factor_scores_fc1[, 2],
+  M_L = factor_scores_fc1[, 3],
+  L_M = factor_scores_fc1[, 4],
+  M_M = factor_scores_fc1[, 5],
+  H_L = factor_scores_fc1[, 6]
+)
+
+```
+
+```{r matrix SS3/FC1}
+
+# 3. Calculate Correlation Matrix (2x6)
+correlation_matrix_2x6 <- cor(combined_scores1[, 1:2], combined_scores1[, 3:8]) 
+
+colnames(correlation_matrix_2x6) <- c("LH", "MH", "ML", "LM", "MM", "HL")
+
+
+# 4. Print the Correlation Matrix
+print(correlation_matrix_2x6)
+
+mean(correlation_matrix_2x6)
+
+```
+
+```{r plot SS3/FC1}
+
+plot2x6 <- corrplot(correlation_matrix_2x6, method = "color", 
+                    tl.col = "black", tl.srt = 45, addCoef.col = "black")
+plot2x6
+
+```
+
+##Correlation matrix of SS1xFC1 (9x6)
+
+Charm = MM
+Silent treatment = HL 
+Coercion = HL 
+Reason = LH
+Regression = HL
+Debasement = HL
+Authority = HL 
+Relationship building = LM 
+Explanation = LM
+
+
+```{r factor scores SS1/FC1}
+
+# 1. Extract Factor Scores (as before)
+factor_scores_ss1 <- lavPredict(fit_ss1) # estimate CFA (9 traits) factor scores 
+factor_scores_fc1 <- fc1_traits_TIRT_s # estimate TIRT (6 traits) factor scores 
+
+# 2. Combine Scores into a Data Frame
+combined_scores <- data.frame(
+  AU_HL = factor_scores_ss1[, 1],
+  RB_LM = factor_scores_ss1[, 2],
+  EX_LM = factor_scores_ss1[, 3],
+  CH_MM = factor_scores_ss1[, 4],
+  ST_HL = factor_scores_ss1[, 5],
+  CO_HL = factor_scores_ss1[, 6],
+  RS_LH = factor_scores_ss1[, 7],
+  RG_HL = factor_scores_ss1[, 8],
+  DB_HL = factor_scores_ss1[, 9],
+  LH = factor_scores_fc1[, 2],
+  MH= factor_scores_fc1[, 3],
+  ML= factor_scores_fc1[, 4],
+  LM = factor_scores_fc1[, 5],
+  MM = factor_scores_fc1[, 6],
+  HL = factor_scores_fc1[, 7] 
+)
+
+```
+
+```{r matrix SS1/FC1}
+
+# 3. Calculate Correlation Matrix (2x6)
+correlation_matrix_9x6 <- cor(combined_scores[, 1:9], combined_scores[, 10:15]) 
+
+colnames(correlation_matrix_9x6) <- c("LH", "MH", "ML", "LM", "MM", "HL")
+
+# 4. Print the Correlation Matrix
+print(correlation_matrix_9x6)
+
+# 5. Mean Correlation 
+
+mean(correlation_matrix_9x6)
+
+
+```
+
+```{r plot SS1/FC1}
+
+plot2x6 <- corrplot(correlation_matrix_9x6, method = "color", 
+                    tl.col = "black", tl.srt = 45, addCoef.col = "black")
+plot2x6
+
+```
